@@ -1,98 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Connect WiFi and Pay UPI</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin-top: 50px;
-      padding: 0 10px;
-    }
-    h1 {
-      color: #333;
-    }
-    p {
-      font-size: 16px;
-      color: #555;
-    }
-    .btn {
-      padding: 15px 25px;
-      font-size: 18px;
-      margin: 10px;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      color: #fff;
-    }
-    #wifiButton {
-      background-color: #007bff;
-    }
-    #upiButton {
-      background-color: #28a745;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi & UPI Payment</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
+    </style>
 </head>
 <body>
-  <h1>Welcome!</h1>
-  <p>Scan the QR code to auto-fill WiFi and UPI details.</p>
-  <div>
-    <button id="wifiButton" class="btn">Connect WiFi</button>
-    <button id="upiButton" class="btn">Pay UPI</button>
-  </div>
 
-  <script>
-    // Get query parameters from URL
-    const params = new URLSearchParams(window.location.search);
-    const ssid = params.get('ssid') || '';
-    const password = params.get('password') || '';
-    const encryption = params.get('encryption') || 'WPA'; // default to WPA
+    <h2>Quick Connect</h2>
 
-    const upi_id = params.get('upi_id') || '';
-    const upi_name = params.get('upi_name') || '';
-    const upi_amount = params.get('upi_amount') || '';
-    const upi_note = params.get('upi_note') || '';
+    <button id="wifiButton">Connect to WiFi</button>
+    <button id="upiButton">Pay via UPI</button>
 
-    // Build UPI deep link URL
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(upi_id)}&pn=${encodeURIComponent(upi_name)}`
-                 + (upi_amount ? `&am=${encodeURIComponent(upi_amount)}` : '')
-                 + (upi_note ? `&tn=${encodeURIComponent(upi_note)}` : '')
-                 + `&cu=INR`;
+    <script>
+        // Function to get URL parameters
+        function getQueryParam(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
 
-    // Set UPI button action: when clicked, redirect to the UPI link
-    const upiButton = document.getElementById('upiButton');
-    upiButton.onclick = function() {
-      window.location.href = upiUrl;
-    };
+        // Extract WiFi details from URL
+        const ssid = getQueryParam('ssid');
+        const password = getQueryParam('password');
+        const encryption = getQueryParam('encryption');
+        const upi_id = getQueryParam('upi_id');
+        const upi_name = getQueryParam('upi_name');
+        const aid = getQueryParam('aid');
 
-    // For WiFi, try to create an Android intent URL.
-    // Note: Auto-connecting to WiFi is not standardized.
-    // Some Android devices might support an intent URL that opens WiFi settings.
-    const wifiButton = document.getElementById('wifiButton');
-    // Construct an intent URL with SSID and password (this is experimental)
-    const wifiIntentUrl = `intent://connect/wifi?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`
-                        + `#Intent;scheme=wifi;package=com.android.settings;end`;
+        // Handle WiFi connection (generates QR)
+        document.getElementById("wifiButton").addEventListener("click", function() {
+            if (ssid && password && encryption) {
+                const wifiData = `WIFI:S:${ssid};T:${encryption};P:${password};H:false;;`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(wifiData)}`;
+                window.location.href = qrUrl; // Redirects to generated QR code
+            } else {
+                alert("WiFi details are missing!");
+            }
+        });
 
-    wifiButton.onclick = function() {
-      // Attempt to open the intent URL (works on some Android devices)
-      window.location.href = wifiIntentUrl;
-    };
+        // Handle UPI Payment
+        document.getElementById("upiButton").addEventListener("click", function() {
+            if (upi_id && upi_name) {
+                const upiUrl = `upi://pay?pa=${upi_id}&pn=${upi_name}&aid=${aid}`;
+                window.location.href = upiUrl; // Opens UPI payment app
+            } else {
+                alert("UPI details are missing!");
+            }
+        });
 
-    /* Alternative approach:
-       If you prefer to copy WiFi details to the clipboard instead of using an intent URL,
-       uncomment the code below and comment out the wifiButton.onclick above.
+    </script>
 
-    wifiButton.onclick = async function() {
-      const wifiConfig = `SSID: ${ssid}\nPassword: ${password}\nEncryption: ${encryption}`;
-      try {
-        await navigator.clipboard.writeText(wifiConfig);
-        alert("WiFi credentials copied to clipboard. Please open your WiFi settings and connect.");
-      } catch (err) {
-        alert("Failed to copy WiFi credentials. Please note them manually:\n" + wifiConfig);
-      }
-    };
-    */
-  </script>
 </body>
 </html>

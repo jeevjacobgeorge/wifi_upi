@@ -5,81 +5,109 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WiFi & UPI Payment</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 20px; }
+        button { padding: 12px 24px; margin: 10px; font-size: 16px; }
+        .qr-container { margin: 20px auto; max-width: 300px; }
+        .instructions { font-size: 14px; color: #666; margin: 15px; }
     </style>
 </head>
 <body>
-
     <h2>Quick Connect</h2>
-
+    
+    <!-- Connection Buttons -->
     <button id="wifiButton">Connect to WiFi</button>
     <button id="upiButton">Pay via UPI</button>
+    
+    <!-- WiFi QR Container -->
+    <div id="qrContainer" class="qr-container" style="display: none;">
+        <img id="wifiQr" alt="WiFi QR Code">
+        <div class="instructions" id="iosInstructions">
+            <p>For iOS: Open Camera app and scan this QR code</p>
+        </div>
+        <div class="instructions" id="androidInstructions">
+            <p>For Android: Tap & hold this QR code or check notifications</p>
+        </div>
+    </div>
 
     <script>
+        // Get URL parameters with proper decoding
         function getQueryParam(name) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(name);
+            return decodeURIComponent(new URLSearchParams(window.location.search).get(name) || '');
         }
 
         // Extract parameters
-        const ssid = getQueryParam('ssid');
-        const password = getQueryParam('password');
-        const encryption = getQueryParam('encryption');
-        const upi_id = getQueryParam('upi_id');
-        const upi_name = getQueryParam('upi_name');
-        const aid = getQueryParam('aid');
+        const params = {
+            ssid: getQueryParam('ssid'),
+            password: getQueryParam('password'),
+            encryption: getQueryParam('encryption') || 'WPA',
+            upi_id: getQueryParam('upi_id'),
+            upi_name: getQueryParam('upi_name'),
+            aid: getQueryParam('aid')
+        };
 
-        // Modified WiFi Connection Handler
+        // Platform detection
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+
+        // WiFi Connection Handler
         document.getElementById("wifiButton").addEventListener("click", function() {
-            if (ssid && password && encryption) {
-                // Direct WiFi connection attempt
-                const wifiURI = `WIFI:S:${ssid};T:${encryption};P:${password};`;
-                
-                // Create hidden link
-                const link = document.createElement('a');
-                link.href = wifiURI;
-                link.style.display = 'none';
-                document.body.appendChild(link);
-                
-                // Simulate click
-                setTimeout(() => {
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    // Fallback instructions if not connected after 2 seconds
+            if (!params.ssid || !params.password) {
+                alert("Missing WiFi credentials!");
+                return;
+            }
+
+            // Generate WiFi connection string
+            const wifiConfig = `WIFI:S:${params.ssid};T:${params.encryption};P:${params.password};;`;
+            
+            // For Android: Try direct connection
+            if (isAndroid) {
+                try {
+                    window.location.href = wifiConfig;
                     setTimeout(() => {
-                        if (!navigator.onLine) {
-                            alert("Tap & hold this WiFi QR code to connect:");
-                            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(wifiURI)}`;
-                            window.open(qrUrl, '_blank');
-                        }
-                    }, 2000);
-                }, 100);
+                        if (!navigator.onLine) showQrFallback(wifiConfig);
+                    }, 1000);
+                } catch (e) {
+                    showQrFallback(wifiConfig);
+                }
             } else {
-                alert("WiFi details are missing!");
+                // For iOS: Show QR immediately
+                showQrFallback(wifiConfig);
             }
         });
 
-        // UPI Payment Handler with fallback
+        // Show QR fallback with platform instructions
+        function showQrFallback(wifiConfig) {
+            const qrContainer = document.getElementById("qrContainer");
+            const qrImg = document.getElementById("wifiQr");
+            
+            // Generate QR code URL
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(wifiConfig)}`;
+            qrContainer.style.display = 'block';
+            
+            // Show platform-specific instructions
+            document.getElementById("iosInstructions").style.display = isIOS ? 'block' : 'none';
+            document.getElementById("androidInstructions").style.display = isAndroid ? 'block' : 'none';
+        }
+
+        // UPI Payment Handler with enhanced compatibility
         document.getElementById("upiButton").addEventListener("click", function() {
-            if (upi_id && upi_name) {
-                const upiUrl = `upi://pay?pa=${upi_id}&pn=${encodeURIComponent(upi_name)}&aid=${aid}`;
-                
-                // Try UPI app first
-                window.location.href = upiUrl;
-                
-                // Fallback to web if app not installed
-                setTimeout(() => {
-                    if (!document.hidden) {
-                        window.location.href = `https://upilink.in/pay/${upi_id}?name=${encodeURIComponent(upi_name)}`;
-                    }
-                }, 500);
-            } else {
-                alert("UPI details are missing!");
+            if (!params.upi_id) {
+                alert("Missing UPI details!");
+                return;
             }
+
+            const upiUrl = `upi://pay?pa=${params.upi_id}&pn=${encodeURIComponent(params.upi_name)}&aid=${params.aid}`;
+            
+            // Try opening UPI app
+            window.location.href = upiUrl;
+            
+            // Fallback to web after delay
+            setTimeout(() => {
+                if (!document.hidden) {
+                    window.location.href = `https://upilink.in/pay/${params.upi_id}`;
+                }
+            }, 800);
         });
     </script>
-
 </body>
 </html>

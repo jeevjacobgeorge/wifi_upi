@@ -1,83 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WiFi & UPI Payment</title>
-  <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      text-align: center; 
-      margin-top: 50px; 
-      padding: 0 10px;
-    }
-    h2 { color: #333; }
-    button { 
-      padding: 12px 24px; 
-      font-size: 16px; 
-      margin: 10px; 
-      cursor: pointer; 
-      border: none; 
-      border-radius: 4px; 
-      color: #fff; 
-    }
-    #wifiButton { background-color: #007bff; }
-    #upiButton { background-color: #28a745; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi & UPI Payment</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
+    </style>
 </head>
 <body>
 
-  <h2>Quick Connect</h2>
-  <p>Scan the QR code to auto-fill WiFi and UPI details.</p>
-  
-  <div>
+    <h2>Quick Connect</h2>
+
     <button id="wifiButton">Connect to WiFi</button>
     <button id="upiButton">Pay via UPI</button>
-  </div>
 
-  <script>
-    // Helper function to get a parameter from the URL
-    function getQueryParam(name) {
-      const params = new URLSearchParams(window.location.search);
-      return params.get(name);
-    }
-
-    // Extract WiFi and UPI parameters from URL
-    const ssid = getQueryParam('ssid');
-    const password = getQueryParam('password');
-    const encryption = getQueryParam('encryption') || 'WPA';
-
-    const upi_id = getQueryParam('upi_id');
-    const upi_name = getQueryParam('upi_name');
-    const aid = getQueryParam('aid');
-
-    // Set up UPI button action: build a UPI deep link and redirect
-    const upiButton = document.getElementById('upiButton');
-    upiButton.onclick = function() {
-      if (upi_id && upi_name) {
-        const upiUrl = `upi://pay?pa=${encodeURIComponent(upi_id)}&pn=${encodeURIComponent(upi_name)}&aid=${encodeURIComponent(aid)}`;
-        window.location.href = upiUrl;
-      } else {
-        alert("UPI details are missing!");
-      }
-    };
-
-    // Set up WiFi button action: copy WiFi details to clipboard and instruct user
-    const wifiButton = document.getElementById('wifiButton');
-    wifiButton.onclick = async function() {
-      if (ssid && password && encryption) {
-        const wifiConfig = `SSID: ${ssid}\nPassword: ${password}\nEncryption: ${encryption}`;
-        try {
-          await navigator.clipboard.writeText(wifiConfig);
-          alert("WiFi credentials copied to clipboard.\n\nPlease open your WiFi settings and paste the details or manually enter them.");
-        } catch (err) {
-          alert("Unable to copy to clipboard. Please note the following details:\n" + wifiConfig);
+    <script>
+        function getQueryParam(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
         }
-      } else {
-        alert("WiFi details are missing!");
-      }
-    };
-  </script>
+
+        // Extract parameters
+        const ssid = getQueryParam('ssid');
+        const password = getQueryParam('password');
+        const encryption = getQueryParam('encryption');
+        const upi_id = getQueryParam('upi_id');
+        const upi_name = getQueryParam('upi_name');
+        const aid = getQueryParam('aid');
+
+        // Modified WiFi Connection Handler
+        document.getElementById("wifiButton").addEventListener("click", function() {
+            if (ssid && password && encryption) {
+                // Direct WiFi connection attempt
+                const wifiURI = `WIFI:S:${ssid};T:${encryption};P:${password};`;
+                
+                // Create hidden link
+                const link = document.createElement('a');
+                link.href = wifiURI;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                
+                // Simulate click
+                setTimeout(() => {
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Fallback instructions if not connected after 2 seconds
+                    setTimeout(() => {
+                        if (!navigator.onLine) {
+                            alert("Tap & hold this WiFi QR code to connect:");
+                            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(wifiURI)}`;
+                            window.open(qrUrl, '_blank');
+                        }
+                    }, 2000);
+                }, 100);
+            } else {
+                alert("WiFi details are missing!");
+            }
+        });
+
+        // UPI Payment Handler with fallback
+        document.getElementById("upiButton").addEventListener("click", function() {
+            if (upi_id && upi_name) {
+                const upiUrl = `upi://pay?pa=${upi_id}&pn=${encodeURIComponent(upi_name)}&aid=${aid}`;
+                
+                // Try UPI app first
+                window.location.href = upiUrl;
+                
+                // Fallback to web if app not installed
+                setTimeout(() => {
+                    if (!document.hidden) {
+                        window.location.href = `https://upilink.in/pay/${upi_id}?name=${encodeURIComponent(upi_name)}`;
+                    }
+                }, 500);
+            } else {
+                alert("UPI details are missing!");
+            }
+        });
+    </script>
 
 </body>
 </html>
